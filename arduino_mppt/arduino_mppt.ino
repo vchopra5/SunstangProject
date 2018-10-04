@@ -113,12 +113,12 @@
 // ---------------------------For ESP8266--------------------------------------------------------------
 
 // replace with your channel's thingspeak API key
-String apiKey = "your Api key from thing speak";
-const char* ssid = "your wifi name";
-
-const char* password = "your wifi password";
-
-const char* server = "api.thingsspeak.com";
+//String apiKey = "your Api key from thing speak";
+//const char* ssid = "your wifi name";
+//
+//const char* password = "your wifi password";
+//
+//const char* server = "api.thingsspeak.com";
 
 // connect 2 to TX of Serial USB
 // connect 3 to RX of serial USB
@@ -306,9 +306,9 @@ void loop()
   load_control();                      // control the connected load
   led_output();                        // led indication
   lcd_display();                       // lcd display
-#if ENABLE_DATALOGGER
-  wifi_datalog();                    // sends data to thingspeak
-#endif
+//#if ENABLE_DATALOGGER
+//  wifi_datalog();                    // sends data to thingspeak
+//#endif
 }
 
 //------------------------------------------------------------------------------------------------------
@@ -687,52 +687,53 @@ void spinner(void) {
   lcd.print(spinner_chars[cspinner%sizeof(spinner_chars)]);
 }
 
+//TODO: Change this to a CAN BUS - not using wifi to transmit data
 //-------------------------------------------------------------------------
 //----------------------------- ESP8266 WiFi ------------------------------
 //--------------------------Plot System data on thingspeak.com-------------
 //-------------------------------------------------------------------------
-void wifi_datalog()
-{
-  // thingspeak needs 15 sec delay between updates
-  static int lastlogged;
-  if ( seconds - lastlogged < 16 )
-      return;
-  lastlogged = seconds;
- // convert to string
-  char buf[16];
-  String strTemp = dtostrf( sol_volts, 4, 1, buf);
-  
-  Serial.println(strTemp);
-  
-  // TCP connection
-  String cmd = "AT+CIPSTART=\"TCP\",\"";
-  cmd += "184.106.153.149"; // api.thingspeak.com
-  cmd += "\",80";
-  ser.println(cmd);
-   
-  if(ser.find((char *)"Error")){
-    Serial.println("AT+CIPSTART error");
-    return;
-  }
-  
-  // prepare GET string
-  String getStr = "GET /update?api_key=";
-  getStr += apiKey;
-  getStr +="&field1=";
-  getStr += String(strTemp);
-  getStr += "\r\n\r\n";
-
-  // send data length
-  cmd = "AT+CIPSEND=";
-  cmd += String(getStr.length());
-  ser.println(cmd);
-
-  if(ser.find((char *)">")){
-    ser.print(getStr);
-  }
-  else{
-    ser.println("AT+CIPCLOSE");
-    // alert user
-    Serial.println("AT+CIPCLOSE");
-  } 
-}
+//void wifi_datalog()
+//{
+//  // thingspeak needs 15 sec delay between updates
+//  static int lastlogged;
+//  if ( seconds - lastlogged < 16 )
+//      return;
+//  lastlogged = seconds;
+// // convert to string
+//  char buf[16];
+//  String strTemp = dtostrf( sol_volts, 4, 1, buf);
+//  
+//  Serial.println(strTemp);
+//  
+//  // TCP connection
+//  String cmd = "AT+CIPSTART=\"TCP\",\"";
+//  cmd += "184.106.153.149"; // api.thingspeak.com
+//  cmd += "\",80";
+//  ser.println(cmd);
+//   
+//  if(ser.find((char *)"Error")){
+//    Serial.println("AT+CIPSTART error");
+//    return;
+//  }
+//  
+//  // prepare GET string
+////  String getStr = "GET /update?api_key=";
+////  getStr += apiKey;
+////  getStr +="&field1=";
+////  getStr += String(strTemp);
+////  getStr += "\r\n\r\n";
+//
+//  // send data length
+//  cmd = "AT+CIPSEND=";
+//  cmd += String(getStr.length());
+//  ser.println(cmd);
+//
+//  if(ser.find((char *)">")){
+//    ser.print(getStr);
+//  }
+//  else{
+//    ser.println("AT+CIPCLOSE");
+//    // alert user
+//    Serial.println("AT+CIPCLOSE");
+//  } 
+//}
