@@ -27,6 +27,9 @@
 #include <LiquidCrystal_I2C.h>      // using the LCD I2C Library from https://bitbucket.org/fmalpartida/new-liquidcrystal/downloads
 #include <Wire.h>  
 #include <SoftwareSerial.h>         // using the Software Serial library Ref : http://www.arduino.cc/en/Reference/SoftwareSerialConstructor
+#include <SPI.h>          //SPI is used to talk to the CAN Controller
+#include <mcp_can.h>
+
 //----------------------------------------------------------------------------------------------------------
  
 //////// Arduino pins Connections//////////////////////////////////////////////////////////////////////////////////
@@ -109,6 +112,8 @@
 //-----------------------------------------------------------------------------------------------------
 // Defining lcd back light pin
 #define BACK_LIGHT_PIN 5       // pin-5 is used to control the lcd back light
+
+MCP_CAN CAN(10);          //set SPI Chip Select to pin 10
 
 // ---------------------------For ESP8266--------------------------------------------------------------
 
@@ -293,6 +298,20 @@ void setup()                           // run once, when the sketch starts
   lcd.write(SOLAR_ICON);
   lcd.setCursor(8, 0);
   lcd.print("BAT");
+
+START_INIT:
+  if(CAN_OK == CAN.begin(CAN_500KBPS))      //setting CAN baud rate to 500Kbps
+    {
+        Serial.println("CAN BUS Shield init ok!");
+    }
+    else
+    {
+        Serial.println("CAN BUS Shield init fail");
+        Serial.println("Init CAN BUS Shield again");
+        delay(100);
+        goto START_INIT;
+    }
+  
 }
 
 //------------------------------------------------------------------------------------------------------
@@ -304,8 +323,8 @@ void loop()
   run_charger();                       // run the charger state machine
   print_data();                        // print data
   load_control();                      // control the connected load
+  sendDataOverCanBus();                // sends voltage and amps over the can bus
   led_output();                        // led indication
-  lcd_display();                       // lcd display
 //#if ENABLE_DATALOGGER
 //  wifi_datalog();                    // sends data to thingspeak
 //#endif
@@ -336,9 +355,18 @@ int read_adc(int channel){
 void read_data(void) {
   
   sol_amps = (read_adc(SOL_AMPS_CHAN) * SOL_AMPS_SCALE -13.51);    //input of solar amps
-  sol_volts = read_adc(SOL_VOLTS_CHAN) * SOL_VOLTS_SCALE;          //input of solar volts 
+  sol_volts = read_adc(SOL_VOLTS_CHAN) * SOL_VOLTS_SCALE;          //input of solar volts
+
   bat_volts = read_adc(BAT_VOLTS_CHAN) * BAT_VOLTS_SCALE;          //input of battery volts 
   sol_watts = sol_amps * sol_volts ;                               //calculations of solar watts                  
+}
+
+
+void sendDataOverCanBus(void){
+  unsigned char can_msg[] = {(int) sol_volts, (int) sol_amps};
+
+  //0xF1 is the device ID for the remote can bus
+  CAN.sendMsgBuf(0xF1, 0, 8, can_msg);
 }
 
 //------------------------------------------------------------------------------------------------------
@@ -576,102 +604,6 @@ void led_output(void)
       light_led(LED_GREEN);
   else
       light_led(LED_RED);
-}
-
-//------------------------------------------------------------------------------------------------------
-//-------------------------- LCD DISPLAY --------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------
-void lcd_display()
-{
-  static bool current_backlight_state = -1;
-  back_light_pin_State = digitalRead(BACK_LIGHT_PIN);
-  if (current_backlight_state != back_light_pin_State) {
-    current_backlight_state = back_light_pin_State;
-    if (back_light_pin_State == HIGH)
-      lcd.backlight();// finish with backlight on
-    else
-      lcd.noBacklight();
-  }
-
-  if (back_light_pin_State == HIGH)
-  {
-    time = millis();                        // If any of the buttons are pressed, save the time in millis to "time"
-  }
- 
- lcd.setCursor(0, 1);
- lcd.print(sol_volts);
- lcd.print("V ");
- lcd.setCursor(0, 2);
- lcd.print(sol_amps);
- lcd.print("A");  
- lcd.setCursor(0, 3);
- lcd.print(sol_watts);
- lcd.print("W "); 
- lcd.setCursor(8, 1);
- lcd.print(bat_volts);
- lcd.setCursor(8,2);
-
- if (charger_state == on) 
- lcd.print("on   ");
- else if (charger_state == off)
- lcd.print("off  ");
- else if (charger_state == bulk)
- lcd.print("bulk ");
- else if (charger_state == bat_float)
- {
- lcd.print("     ");
- lcd.setCursor(8,2);
- lcd.print("float");
- }
- 
- //-----------------------------------------------------------
- //--------------------Battery State Of Charge ---------------
- //-----------------------------------------------------------
- int pct = 100.0*(bat_volts - 11.3)/(12.7 - 11.3);
- if (pct < 0)
-     pct = 0;
- else if (pct > 100)
-     pct = 100;
-
- lcd.setCursor(12,0);
- lcd.print((char)(pct*5/100));
-
- lcd.setCursor(8,3);
- pct = pct - (pct%10);
- lcd.print(pct);
- lcd.print("%  ");
- 
-//--------------------------------------------------------------------- 
-//------------------Duty Cycle-----------------------------------------
-//---------------------------------------------------------------------
- lcd.setCursor(15,0);
- lcd.print("PWM");
- lcd.setCursor(19,0);
- lcd.write(PWM_ICON);
- lcd.setCursor(15,1);
- lcd.print("   ");
- lcd.setCursor(15,1);
- if( charger_state == off)
- lcd.print(0);
- else
- lcd.print(pwm); 
- lcd.print("% ");
- //----------------------------------------------------------------------
- //------------------------Load Status-----------------------------------
- //----------------------------------------------------------------------
- lcd.setCursor(15,2);
- lcd.print("Load");
- lcd.setCursor(15,3);
- if (load_status)
- {
-    lcd.print("On  ");
- }
- else
- {
-   lcd.print("Off ");
- } 
- spinner();
- backLight_timer();                      // call the backlight timer function in every loop 
 }
 
 void backLight_timer(){
